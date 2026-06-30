@@ -104,7 +104,7 @@ society-maintenance-tracker/
 | Backend API — auth, society join/create, complaints, notices, dashboard, multi-tenant isolation, overdue detection, email + photo wiring | ✅ Done |
 | Frontend — auth, dashboards, raise complaint w/ photo, complaint timeline, notice board, admin tools, society settings | ✅ Done |
 | Fully responsive (mobile drawer nav, wrapping layouts) | ✅ Done |
-| Deployment (Render/Vercel) | ⏳ Not yet |
+| Deployment (Render/Vercel) |  ✅ Done |
 | Mobile app (React Native) | ⏳ Not yet |
 | Production email/photo credentials | ⏳ Not yet |
 | System design write-up | ⏳ Not yet |
