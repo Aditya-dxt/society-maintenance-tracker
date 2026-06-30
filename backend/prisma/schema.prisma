@@ -1,0 +1,130 @@
+// Aangan — Society Maintenance Tracker
+// Multi-tenant schema: every operational table carries societyId.
+// No query anywhere in the app should ever read/write across societies.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  ADMIN
+  RESIDENT
+}
+
+enum ComplaintStatus {
+  OPEN
+  IN_PROGRESS
+  RESOLVED
+}
+
+enum Priority {
+  LOW
+  MEDIUM
+  HIGH
+}
+
+// A society is the tenant boundary. Every other table (except User's auth
+// fields) is scoped to a societyId, and every backend query filters by it.
+model Society {
+  id                 String   @id @default(uuid())
+  name               String
+  address            String?
+  joinCode           String   @unique // e.g. "PLM-7K2X" — admin shares this with residents
+  overdueThresholdDays Int    @default(7)
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+
+  users       User[]
+  complaints  Complaint[]
+  notices     Notice[]
+
+  @@map("societies")
+}
+
+model User {
+  id           String   @id @default(uuid())
+  name         String
+  email        String   @unique
+  passwordHash String
+  role         Role
+  flatNumber   String?  // residents only
+  createdAt    DateTime @default(now())
+
+  societyId String
+  society   Society @relation(fields: [societyId], references: [id], onDelete: Cascade)
+
+  complaintsRaised   Complaint[]        @relation("RaisedBy")
+  historyChanges     ComplaintHistory[] @relation("ChangedBy")
+  noticesPosted      Notice[]           @relation("PostedBy")
+
+  @@index([societyId])
+  @@map("users")
+}
+
+model Complaint {
+  id          String          @id @default(uuid())
+  title       String
+  description String
+  category    String
+  status      ComplaintStatus @default(OPEN)
+  priority    Priority        @default(LOW)
+  photoUrl    String?
+  isOverdue   Boolean         @default(false)
+  createdAt   DateTime        @default(now())
+  updatedAt   DateTime        @updatedAt
+  resolvedAt  DateTime?
+
+  societyId String
+  society   Society @relation(fields: [societyId], references: [id], onDelete: Cascade)
+
+  residentId String
+  resident   User   @relation("RaisedBy", fields: [residentId], references: [id])
+
+  history ComplaintHistory[]
+
+  @@index([societyId])
+  @@index([societyId, status])
+  @@index([societyId, category])
+  @@map("complaints")
+}
+
+// Immutable audit trail — every status change is appended here, never edited.
+model ComplaintHistory {
+  id         String           @id @default(uuid())
+  complaintId String
+  complaint  Complaint        @relation(fields: [complaintId], references: [id], onDelete: Cascade)
+
+  oldStatus  ComplaintStatus?
+  newStatus  ComplaintStatus
+  note       String?
+  changedAt  DateTime         @default(now())
+
+  changedById String
+  changedBy   User   @relation("ChangedBy", fields: [changedById], references: [id])
+
+  @@index([complaintId])
+  @@map("complaint_history")
+}
+
+model Notice {
+  id          String   @id @default(uuid())
+  title       String
+  content     String
+  isImportant Boolean  @default(false)
+  createdAt   DateTime @default(now())
+
+  societyId String
+  society   Society @relation(fields: [societyId], references: [id], onDelete: Cascade)
+
+  postedById String
+  postedBy   User   @relation("PostedBy", fields: [postedById], references: [id])
+
+  @@index([societyId])
+  @@index([societyId, isImportant])
+  @@map("notices")
+}
