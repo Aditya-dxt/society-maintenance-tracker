@@ -11,9 +11,29 @@ const { recalculateOverdueFlags } = require('./services/overdue.service')
 
 const app = express()
 
-app.use(cors({
-  origin: process.env.CLIENT_URL || 'http://localhost:5173',
-}))
+// Explicit CORS — list every origin that's allowed to call this API.
+// Add your Vercel URL to ALLOWED_ORIGINS in your backend's environment variables.
+const ALLOWED_ORIGINS = [
+  'http://localhost:5173',
+  'http://localhost:4173',
+  ...(process.env.ALLOWED_ORIGINS ? process.env.ALLOWED_ORIGINS.split(',').map(o => o.trim()) : []),
+]
+
+const corsOptions = {
+  origin: (origin, callback) => {
+    // Allow requests with no origin (curl, Postman, mobile apps)
+    if (!origin) return callback(null, true)
+    if (ALLOWED_ORIGINS.includes(origin)) return callback(null, true)
+    callback(new Error(`CORS: origin ${origin} not allowed`))
+  },
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization'],
+}
+
+app.use(cors(corsOptions))
+// Handle preflight for all routes
+app.options('*', cors(corsOptions))
 app.use(express.json())
 
 app.get('/health', (req, res) => res.json({ status: 'ok' }))
